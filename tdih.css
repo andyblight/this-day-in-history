@@ -1,0 +1,18 @@
+/*
+  This Day In History Plugin CSS
+*/
+
+
+/* Admin Screens */
+
+.column-event_date { width: 10%; }
+
+.column-event_name { width: 60% }
+
+.column-event_modified { width: 15% }
+
+.column-event_type { width: 15%; }
+
+#dashboard_right_now .tdih_event-count a::before { content: "\f321"; }
+
+#dashboard_right_now .tdih_event_type-count a::before { content: "\f321"; }
