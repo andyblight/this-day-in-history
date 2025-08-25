@@ -53,13 +53,20 @@ class TDIH_List_Table extends WP_List_Table
 	public function column_event_date($item)
 	{
 
+		// sanitize incoming page param for links
+		$page = isset( $_REQUEST['page'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['page'] ) ) : 'this-day-in-history';
+
+		$edit_url   = add_query_arg( array( 'page' => $page, 'action' => 'edit', 'id' => $item->ID ), admin_url( 'admin.php' ) );
+		$delete_url = wp_nonce_url( add_query_arg( array( 'page' => $page, 'action' => 'delete', 'id' => $item->ID, 'noheader' => 'true' ), admin_url( 'admin.php' ) ), 'this_day_in_history_delete' );
+		$view_url   = esc_url( home_url( '/this-day-in-history/' . rawurlencode( $item->slug ) ) );
+
 		$actions = array(
-			'edit' => sprintf('<a href="?page=%s&action=%s&id=%s">Edit</a>', $_REQUEST['page'], 'edit', $item->ID),
-			'delete' => sprintf('<a href="?page=%s&action=%s&id=%s&noheader=true">Delete</a>', $_REQUEST['page'], 'delete', $item->ID),
-			'view' => sprintf('<a href="' . get_home_url() . '/this-day-in-history/%s">View</a>', $item->slug),
+			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'this-day-in-history' ) ),
+			'delete' => sprintf( '<a href="%s">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'this-day-in-history' ) ),
+			'view'   => sprintf( '<a href="%s">%s</a>', $view_url, esc_html__( 'View', 'this-day-in-history' ) ),
 		);
 
-		return sprintf('%1$s %2$s', $this->date_add_era($item->event_date), $this->row_actions($actions));
+		return sprintf( '%1$s %2$s', esc_html( $this->date_add_era( $item->event_date ) ), $this->row_actions( $actions ) );
 	}
 
 	public function column_cb($item)
@@ -125,57 +132,41 @@ class TDIH_List_Table extends WP_List_Table
 
 		$this->process_bulk_action();
 
-		// Safe type filter
-		$type_param = isset($_REQUEST['type']) ? sanitize_text_field(wp_unslash($_REQUEST['type'])) : '';
-		$type = $type_param !== '' ? $wpdb->prepare( " AND t.slug = %s ", $type_param ) : '';
+		/* --- sanitize and prepare dynamic parts to avoid SQL injection --- */
+		$raw_type = isset( $_REQUEST['type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['type'] ) ) : '';
+		$type = $raw_type === '' ? '' : $wpdb->prepare( "AND t.slug = %s ", $raw_type );
 
-		// Safe search filter
-		$s = isset($_REQUEST['s']) ? sanitize_text_field(wp_unslash($_REQUEST['s'])) : '';
-		if ( $s !== '' ) {
-			$like = '%' . $wpdb->esc_like( $s ) . '%';
-			$filter = $wpdb->prepare( " AND (p.post_title LIKE %s OR p.post_content LIKE %s) ", $like, $like );
+		$raw_search = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : '';
+		if ( $raw_search !== '' ) {
+			$like   = '%' . $wpdb->esc_like( $raw_search ) . '%';
+			$filter = $wpdb->prepare( "AND (p.post_title LIKE %s OR p.post_content LIKE %s) ", $like, $like );
 		} else {
 			$filter = '';
 		}
 
-		$_REQUEST['orderby'] = empty($_REQUEST['orderby']) ? 'event_date' : $_REQUEST['orderby'];
+		$req_orderby = isset( $_REQUEST['orderby'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['orderby'] ) ) : 'event_date';
+		$req_order   = isset( $_REQUEST['order'] ) && in_array( strtoupper( $_REQUEST['order'] ), array( 'ASC', 'DESC' ), true ) ? strtoupper( $_REQUEST['order'] ) : 'ASC';
 
-		$order = empty($_REQUEST['order']) ? 'ASC' : $_REQUEST['order'];
+		// whitelist allowable ORDER BY clauses
+		$allowed_orderby = array(
+			'event_name'     => "ORDER BY p.post_content",
+			'event_date'     => "ORDER BY CONVERT(LEFT(p.post_title, LENGTH(p.post_title) - 6), SIGNED INTEGER) " . $req_order . ", CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%%m%%d') ELSE DATE_FORMAT(p.post_title,'%%m%%d') END",
+			'event_type'     => "ORDER BY t.name " . $req_order,
+			'event_modified' => "ORDER BY p.post_modified " . $req_order,
+		);
 
-		switch ($_REQUEST['orderby']) {
+		$orderby = isset( $allowed_orderby[ $req_orderby ] ) ? $allowed_orderby[ $req_orderby ] : "ORDER BY p.post_title " . $req_order;
 
-			case 'event_name':
+		$sql = "SELECT p.ID, p.post_title AS event_date, p.post_name AS slug, p.post_content AS event_name, t.name AS event_type, p.post_modified AS event_modified, t.slug AS event_slug
+				FROM {$wpdb->posts} p
+				LEFT JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+				LEFT JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy='event_type'
+				LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+				WHERE p.post_type = 'tdih_event' " . $type . $filter . " " . $orderby;
 
-				$orderby = 'ORDER BY p.post_content ';
-
-				break;
-
-			case 'event_date':
-
-				$orderby = "ORDER BY CONVERT(LEFT(p.post_title, LENGTH(p.post_title) - 6), SIGNED INTEGER) " . $order;
-
-				$orderby .= ", CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%m%d') ELSE DATE_FORMAT(p.post_title,'%m%d') END ";
-
-				break;
-
-			case 'event_type':
-
-				$orderby = 'ORDER BY t.name ';
-
-				break;
-
-			case 'event_modified':
-
-				$orderby = 'ORDER BY p.post_modified ';
-
-				break;
-
-			default:
-
-				$orderby = "ORDER BY p.post_title ";
-		}
-
-		$events = $wpdb->get_results("SELECT p.ID, p.post_title AS event_date, p.post_name AS slug, p.post_content AS event_name, t.name AS event_type, p.post_modified AS event_modified, t.slug AS event_slug FROM " . $wpdb->prefix . "posts p LEFT JOIN " . $wpdb->prefix . "term_relationships tr ON p.ID = tr.object_id LEFT JOIN " . $wpdb->prefix . "term_taxonomy tt ON tr.term_taxonomy_id = tt.term_taxonomy_id   AND tt.taxonomy='event_type' LEFT JOIN " . $wpdb->prefix . "terms t ON tt.term_id = t.term_id WHERE p.post_type = 'tdih_event' " . $type . $filter . $orderby . $order);
+		$events = $wpdb->get_results(
+			$sql
+		);
 
 		$total_items = count($events);
 
@@ -304,6 +295,7 @@ class TDIH_List_Table extends WP_List_Table
 		if (isset($matches[4])) {
 			$date = '-' . $date;
 		}
+
 		return $date;
 	}
 
