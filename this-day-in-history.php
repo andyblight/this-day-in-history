@@ -572,10 +572,10 @@ function tdih_admin_notices(){
 	}
 }
 
+
 add_action('admin_notices', 'tdih_admin_notices');
 
 /* Add text domain */
-add_action('init', 'tdih_load_textdomain');
 function tdih_load_textdomain() {
     load_plugin_textdomain(
         'this-day-in-history', // adjust if your textdomain differs
@@ -584,4 +584,5 @@ function tdih_load_textdomain() {
     );
 }
 
+add_action('init', 'tdih_load_textdomain');
 ?>
