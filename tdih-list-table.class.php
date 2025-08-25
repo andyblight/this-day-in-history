@@ -125,9 +125,18 @@ class TDIH_List_Table extends WP_List_Table
 
 		$this->process_bulk_action();
 
-		$type = empty($_REQUEST['type']) ? '' : "AND t.slug='" . $_REQUEST['type'] . "' ";
+		// Safe type filter
+		$type_param = isset($_REQUEST['type']) ? sanitize_text_field(wp_unslash($_REQUEST['type'])) : '';
+		$type = $type_param !== '' ? $wpdb->prepare( " AND t.slug = %s ", $type_param ) : '';
 
-		$filter = empty($_REQUEST['s']) ? '' : "AND (p.post_title LIKE '%" . like_escape($_REQUEST['s']) . "%' OR p.post_content LIKE '%" . like_escape($_REQUEST['s']) . "%') ";
+		// Safe search filter
+		$s = isset($_REQUEST['s']) ? sanitize_text_field(wp_unslash($_REQUEST['s'])) : '';
+		if ( $s !== '' ) {
+			$like = '%' . $wpdb->esc_like( $s ) . '%';
+			$filter = $wpdb->prepare( " AND (p.post_title LIKE %s OR p.post_content LIKE %s) ", $like, $like );
+		} else {
+			$filter = '';
+		}
 
 		$_REQUEST['orderby'] = empty($_REQUEST['orderby']) ? 'event_date' : $_REQUEST['orderby'];
 
@@ -276,39 +285,31 @@ class TDIH_List_Table extends WP_List_Table
 
 	private function date_reorder($date)
 	{
-
 		switch ($this->date_description) {
-
 			case 'MM-DD-YYYY':
 				if (preg_match("/^(\d{2})-(\d{2})-(\d{1,4})(" . $this->era_mark . ")?$/i", $date, $matches)) {
 					$date = sprintf('%04d', $matches[3]) . '-' . $matches[1] . '-' . $matches[2];
 				}
 				break;
-
 			case 'DD-MM-YYYY':
 				if (preg_match("/^(\d{2})-(\d{2})-(\d{1,4})(" . $this->era_mark . ")?$/i", $date, $matches)) {
 					$date = sprintf('%04d', $matches[3]) . '-' . $matches[2] . '-' . $matches[1];
 				}
 				break;
-
 			default:
 				if (preg_match("/^(\d{1,4})-(\d{2})-(\d{2})(" . $this->era_mark . ")?$/i", $date, $matches)) {
 					$date = sprintf('%04d', $matches[1]) . '-' . $matches[2] . '-' . $matches[3];
 				}
 		}
-
 		if (isset($matches[4])) {
 			$date = '-' . $date;
 		}
-
 		return $date;
 	}
 
 	private function event_types($id)
 	{
-
 		$terms = get_the_terms($id, 'event_type');
-
 		$term_list = '';
 
 		if ($terms != '') {
@@ -393,11 +394,14 @@ class TDIH_List_Table extends WP_List_Table
 				</h3>
 				<form id="add_edit_event" method="post" class="add_edit_event validate"
 					action="<?php echo esc_attr(add_query_arg('noheader', 'true')); ?>">
-					<input type="hidden" name="page" value="<?php echo $_REQUEST['page'] ?>" />
-					<input type="hidden" name="action"
-						value="<?php echo $this->current_action() == 'edit' ? 'update' : 'add'; ?>" />
+					<?php
+					$tdih_page = isset($_REQUEST['page']) ? sanitize_text_field(wp_unslash($_REQUEST['page'])) : '';
+					$tdih_action = $this->current_action() == 'edit' ? 'update' : 'add';
+					?>
+					<input type="hidden" name="page" value="<?php echo esc_attr($tdih_page); ?>" />
+					<input type="hidden" name="action" value="<?php echo esc_attr($tdih_action); ?>" />
 					<?php if ($this->current_action() == 'edit') {
-						echo '<input type="hidden" name="id" value="' . $id . '" />';
+						echo '<input type="hidden" name="id" value="' . esc_attr((int) $id) . '" />';
 					} ?>
 					<?php wp_nonce_field('this_day_in_history_add_edit'); ?>
 					<div class="form-field form-required">
@@ -455,7 +459,6 @@ class TDIH_List_Table extends WP_List_Table
 
 	private function item_list()
 	{
-
 		?>
 		<div class="wrap">
 			<h2>
@@ -473,7 +476,6 @@ class TDIH_List_Table extends WP_List_Table
 			</form>
 		</div>
 		<?php
-
 	}
 
 	private function item_update()
