@@ -386,15 +386,29 @@ class TDIH_List_Table extends WP_List_Table {
 
 	}
 
-	private function item_delete() {
+	private function item_delete()
+	{
+		// Capability check: require plugin-specific capability or admin fallback
+		if ( ! ( current_user_can( 'manage_tdih_events' ) || current_user_can( 'manage_options' ) ) ) {
+			wp_die( __( 'You do not have permission to delete events.', 'this-day-in-history' ) );
+		}
 
-		$id = (int) $_GET['id'];
+		// Verify nonce. This expects delete links to include a nonce created with
+		// wp_nonce_url( $url, 'this_day_in_history_delete' ) or wp_create_nonce('this_day_in_history_delete')
+		if ( empty( $_GET['_wpnonce'] ) ) {
+			wp_die( __( 'Invalid request.', 'this-day-in-history' ) );
+		}
+		check_admin_referer( 'this_day_in_history_delete' );
 
-		$result = wp_delete_post($id, true);
+		$id = isset( $_GET['id'] ) ? absint( $_GET['id'] ) : 0;
+		if ( $id ) {
+			wp_delete_post( $id, true );
+		}
 
-		$url = add_query_arg(array('message' => 3), admin_url('?page=this-day-in-history'));
-
-		wp_redirect($url);
+		// Redirect back to the admin page and stop execution
+		$redirect = add_query_arg( array( 'page' => 'this-day-in-history', 'message' => 3 ), admin_url( 'admin.php' ) );
+		wp_redirect( esc_url_raw( $redirect ) );
+		exit;
 	}
 
 	private function item_list() {
