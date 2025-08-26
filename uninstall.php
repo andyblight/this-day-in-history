@@ -1,61 +1,53 @@
 <?php
-
-if (!defined('WP_UNINSTALL_PLUGIN') || !WP_UNINSTALL_PLUGIN || dirname(WP_UNINSTALL_PLUGIN) != dirname(plugin_basename(__FILE__))) {
-    status_header(404);
+// Uninstall routine for This Day In History plugin.
+// This file is executed only when WP_UNINSTALL_PLUGIN is defined by WordPress.
+if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
     exit;
 }
 
 global $wpdb;
 
-// Drop the events table if it exists (not used since version 0.7)
-$table_name = $wpdb->prefix . "tdih_events";
-$result = $wpdb->query($wpdb->prepare("DROP TABLE IF EXISTS %s", $table_name));
-if ($wpdb->last_error) {
-    error_log('Error dropping table: ' . $wpdb->last_error);
-}
+// Drop legacy table if it exists (legacy; safe to attempt)
+$legacy_table = esc_sql( $wpdb->prefix . 'tdih_events' );
+$wpdb->query( "DROP TABLE IF EXISTS {$legacy_table}" );
 
-// Remove the custom taxonomy terms
-$terms = $wpdb->get_results($wpdb->prepare("SELECT term_taxonomy_id, term_id FROM {$wpdb->prefix}term_taxonomy WHERE taxonomy = %s", 'event_type'));
+// Remove all terms in the event_type taxonomy (use WP API to keep integrity)
+if ( taxonomy_exists( 'event_type' ) ) {
+    $terms = get_terms( array(
+        'taxonomy'   => 'event_type',
+        'hide_empty' => false,
+        'fields'     => 'ids',
+    ) );
 
-foreach ($terms as $term) {
-    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}terms WHERE term_id = %d", $term->term_id));
-    if ($wpdb->last_error) {
-        error_log('Error deleting term: ' . $wpdb->last_error);
-    }
-
-    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}term_relationships WHERE term_taxonomy_id = %d", $term->term_taxonomy_id));
-    if ($wpdb->last_error) {
-        error_log('Error deleting term relationships: ' . $wpdb->last_error);
-    }
-
-    $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}term_taxonomy WHERE term_taxonomy_id = %d", $term->term_taxonomy_id));
-    if ($wpdb->last_error) {
-        error_log('Error deleting term taxonomy: ' . $wpdb->last_error);
+    if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
+        foreach ( $terms as $term_id ) {
+            // wp_delete_term will clean up term_taxonomy and relationships
+            wp_delete_term( absint( $term_id ), 'event_type' );
+        }
     }
 }
 
-// Remove the event posts
-$wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->prefix}posts WHERE post_type = %s", 'tdih_event'));
-if ($wpdb->last_error) {
-    error_log('Error deleting posts: ' . $wpdb->last_error);
+// Remove all tdih_event posts (use WP API to ensure metadata deletion)
+$posts = get_posts( array(
+    'post_type'   => 'tdih_event',
+    'numberposts' => -1,
+    'fields'      => 'ids',
+) );
+
+if ( ! empty( $posts ) && ! is_wp_error( $posts ) ) {
+    foreach ( $posts as $post_id ) {
+        wp_delete_post( absint( $post_id ), true ); // force delete
+    }
 }
 
-// Delete the database version option
-if (!delete_option("tdih_db_version")) {
-    error_log('Error deleting option: tdih_db_version');
-}
+// Delete plugin options
+delete_option( 'tdih_db_version' );
+delete_option( 'tdih_options' );
 
-// Delete the plugin options
-if (!delete_option("tdih_options")) {
-    error_log('Error deleting option: tdih_options');
-}
-
-// Remove the capability
-$role = get_role('administrator');
-if ($role && $role->has_cap('manage_tdih_events')) {
-    $role->remove_cap('manage_tdih_events');
-} else {
-    error_log('Error removing capability: manage_tdih_events');
+// Remove capability from administrator role if present
+$role = get_role( 'administrator' );
+if ( $role && $role->has_cap( 'manage_tdih_events' ) ) {
+    $role->remove_cap( 'manage_tdih_events' );
 }
 
 ?>

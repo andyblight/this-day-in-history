@@ -1,78 +1,60 @@
 <?php
 
-if (!defined('ABSPATH')) {
-    exit; // Exit if accessed directly
-}
-
 class tdih_init
 {
 
-    public function __construct($case = false)
-    {
-        switch ($case) {
-            case 'activate':
-                $this->tdih_activate();
-                break;
+	// Prevent direct instantiation; use static methods
+	private function __construct()
+	{
+	}
 
-            case 'deactivate':
-                $this->tdih_deactivate();
-                break;
+	// Called by register_activation_hook
+	public static function on_activate()
+	{
+		self::tdih_activate();
+	}
 
-            default:
-                wp_die(esc_html__('Invalid Access', 'this-day-in-history'));
-                break;
-        }
-    }
+	// Called by register_deactivation_hook
+	public static function on_deactivate()
+	{
+		self::tdih_deactivate();
+	}
 
-    public static function on_activate()
-    {
-        if (!current_user_can('activate_plugins')) {
-            wp_die(esc_html__('You do not have sufficient permissions to activate plugins.', 'this-day-in-history'));
-        }
+	private static function tdih_activate()
+	{
+		global $wpdb;
 
-        new tdih_init('activate');
-    }
+		// Avoid using translation functions during activation (textdomain may not be loaded)
+		$defaults = array(
+			'date_format' => 'YYYY-MM-DD',
+			'era_mark' => 1,
+			'no_events' => 'No Events',
+			'exclude_search' => 1,
+		);
 
-    public static function on_deactivate()
-    {
-        if (!current_user_can('activate_plugins')) {
-            wp_die(esc_html__('You do not have sufficient permissions to deactivate plugins.', 'this-day-in-history'));
-        }
+		// Add options only if they don't exist
+		if (false === get_option('tdih_options', false)) {
+			add_option('tdih_options', $defaults);
+		}
 
-        new tdih_init('deactivate');
-    }
+		if (defined('TDIH_DB_VERSION')) {
+			add_option('tdih_db_version', TDIH_DB_VERSION);
+		} else {
+			add_option('tdih_db_version', 1);
+		}
 
-    private function tdih_activate()
-    {
-        global $wpdb;
+		// Grant capability to administrator role (if role exists)
+		$role = get_role('administrator');
+		if ($role && !$role->has_cap('manage_tdih_events')) {
+			$role->add_cap('manage_tdih_events');
+		}
+	}
 
-        // Add default options
-        add_option('tdih_options', array(
-            'date_format' => 'YYYY-MM-DD',
-            'era_mark' => 1,
-            'no_events' => esc_html__('No Events', 'this-day-in-history'),
-            'exclude_search' => 1
-        ));
-
-        // Set the database version
-        add_option('tdih_db_version', TDIH_DB_VERSION);
-
-        // Add custom capability to the administrator role
-        $role = get_role('administrator');
-        if ($role) {
-            if (!$role->has_cap('manage_tdih_events')) {
-                $role->add_cap('manage_tdih_events');
-            }
-        } else {
-            error_log('Administrator role not found. Could not add capability "manage_tdih_events".');
-        }
-    }
-
-    private function tdih_deactivate()
-    {
-        // Perform any necessary cleanup on deactivation
-        // Currently, no actions are required
-    }
+	private static function tdih_deactivate()
+	{
+		// Intentionally left blank. Avoid removing capabilities on deactivate to
+		// prevent accidental privilege changes on multi-site/admins.
+	}
 }
 
 ?>
