@@ -170,15 +170,27 @@ class TDIH_List_Table extends WP_List_Table
 				LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
 				WHERE p.post_type = 'tdih_event' " . $type . $filter . " " . $orderby;
 
-		$events = $wpdb->get_results(
-			$sql
-		);
+		// --- get total count (use DISTINCT in case joins duplicate rows) ---
+		$count_sql = "SELECT COUNT(DISTINCT p.ID) FROM {$wpdb->posts} p
+				LEFT JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+				LEFT JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id AND tt.taxonomy='event_type'
+				LEFT JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+				WHERE p.post_type = 'tdih_event' " . $type . $filter;
 
-		$total_items = count($events);
+		$total_items = intval( $wpdb->get_var( $count_sql ) );
 
-		$this->items = array_slice($events, (($this->get_pagenum() - 1) * $this->per_page), $this->per_page);
+		// --- add LIMIT / OFFSET for current page ---
+		$offset = max( 0, ( $this->get_pagenum() - 1 ) * $this->per_page );
+		$paged_sql = $sql . " LIMIT %d OFFSET %d";
+		$events = $wpdb->get_results( $wpdb->prepare( $paged_sql, $this->per_page, $offset ) );
 
-		$this->set_pagination_args(array('total_items' => $total_items, 'per_page' => $this->per_page, 'total_pages' => ceil($total_items / $this->per_page)));
+		// set items and pagination
+		$this->items = $events;
+		$this->set_pagination_args( array(
+			'total_items' => $total_items,
+			'per_page'    => $this->per_page,
+			'total_pages' => ( $this->per_page > 0 ) ? ceil( $total_items / $this->per_page ) : 0,
+		) );
 	}
 
 	public function process_action()
