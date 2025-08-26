@@ -37,13 +37,19 @@ class TDIH_List_Table extends WP_List_Table
 		switch ($column_name) {
 
 			case 'event_name':
-				return $item->event_name;
+				// event_name stored with wp_kses_post; safe to allow limited HTML
+				return wp_kses_post($item->event_name);
 
 			case 'event_type':
-				return $item->event_type === NULL ? '--' : '<a href="admin.php?page=this-day-in-history&type=' . $item->event_slug . '">' . $item->event_type . '</a>';
+				if ($item->event_type === NULL) {
+					return '--';
+				}
+				$page = isset($_REQUEST['page']) ? sanitize_text_field(wp_unslash($_REQUEST['page'])) : 'this-day-in-history';
+				$url = add_query_arg(array('page' => $page, 'type' => $item->event_slug), admin_url('admin.php'));
+				return sprintf('<a href="%s">%s</a>', esc_url($url), esc_html($item->event_type));
 
 			case 'event_modified':
-				return $item->event_modified;
+				return esc_html($item->event_modified);
 
 			default:
 				return print_r($item, true);
@@ -54,19 +60,19 @@ class TDIH_List_Table extends WP_List_Table
 	{
 
 		// sanitize incoming page param for links
-		$page = isset( $_REQUEST['page'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['page'] ) ) : 'this-day-in-history';
+		$page = isset($_REQUEST['page']) ? sanitize_text_field(wp_unslash($_REQUEST['page'])) : 'this-day-in-history';
 
-		$edit_url   = add_query_arg( array( 'page' => $page, 'action' => 'edit', 'id' => $item->ID ), admin_url( 'admin.php' ) );
-		$delete_url = wp_nonce_url( add_query_arg( array( 'page' => $page, 'action' => 'delete', 'id' => $item->ID, 'noheader' => 'true' ), admin_url( 'admin.php' ) ), 'this_day_in_history_delete' );
-		$view_url   = esc_url( home_url( '/this-day-in-history/' . rawurlencode( $item->slug ) ) );
+		$edit_url = add_query_arg(array('page' => $page, 'action' => 'edit', 'id' => $item->ID), admin_url('admin.php'));
+		$delete_url = wp_nonce_url(add_query_arg(array('page' => $page, 'action' => 'delete', 'id' => $item->ID, 'noheader' => 'true'), admin_url('admin.php')), 'this_day_in_history_delete');
+		$view_url = esc_url(home_url('/this-day-in-history/' . rawurlencode($item->slug)));
 
 		$actions = array(
-			'edit'   => sprintf( '<a href="%s">%s</a>', esc_url( $edit_url ), esc_html__( 'Edit', 'this-day-in-history' ) ),
-			'delete' => sprintf( '<a href="%s">%s</a>', esc_url( $delete_url ), esc_html__( 'Delete', 'this-day-in-history' ) ),
-			'view'   => sprintf( '<a href="%s">%s</a>', $view_url, esc_html__( 'View', 'this-day-in-history' ) ),
+			'edit' => sprintf('<a href="%s">%s</a>', esc_url($edit_url), esc_html__('Edit', 'this-day-in-history')),
+			'delete' => sprintf('<a href="%s">%s</a>', esc_url($delete_url), esc_html__('Delete', 'this-day-in-history')),
+			'view' => sprintf('<a href="%s">%s</a>', $view_url, esc_html__('View', 'this-day-in-history')),
 		);
 
-		return sprintf( '%1$s %2$s', esc_html( $this->date_add_era( $item->event_date ) ), $this->row_actions( $actions ) );
+		return sprintf('%1$s %2$s', esc_html($this->date_add_era($item->event_date)), $this->row_actions($actions));
 	}
 
 	public function column_cb($item)
@@ -133,29 +139,29 @@ class TDIH_List_Table extends WP_List_Table
 		$this->process_bulk_action();
 
 		/* --- sanitize and prepare dynamic parts to avoid SQL injection --- */
-		$raw_type = isset( $_REQUEST['type'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['type'] ) ) : '';
-		$type = $raw_type === '' ? '' : $wpdb->prepare( "AND t.slug = %s ", $raw_type );
+		$raw_type = isset($_REQUEST['type']) ? sanitize_text_field(wp_unslash($_REQUEST['type'])) : '';
+		$type = $raw_type === '' ? '' : $wpdb->prepare("AND t.slug = %s ", $raw_type);
 
-		$raw_search = isset( $_REQUEST['s'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['s'] ) ) : '';
-		if ( $raw_search !== '' ) {
-			$like   = '%' . $wpdb->esc_like( $raw_search ) . '%';
-			$filter = $wpdb->prepare( "AND (p.post_title LIKE %s OR p.post_content LIKE %s) ", $like, $like );
+		$raw_search = isset($_REQUEST['s']) ? sanitize_text_field(wp_unslash($_REQUEST['s'])) : '';
+		if ($raw_search !== '') {
+			$like = '%' . $wpdb->esc_like($raw_search) . '%';
+			$filter = $wpdb->prepare("AND (p.post_title LIKE %s OR p.post_content LIKE %s) ", $like, $like);
 		} else {
 			$filter = '';
 		}
 
-		$req_orderby = isset( $_REQUEST['orderby'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['orderby'] ) ) : 'event_date';
-		$req_order   = isset( $_REQUEST['order'] ) && in_array( strtoupper( $_REQUEST['order'] ), array( 'ASC', 'DESC' ), true ) ? strtoupper( $_REQUEST['order'] ) : 'ASC';
+		$req_orderby = isset($_REQUEST['orderby']) ? sanitize_text_field(wp_unslash($_REQUEST['orderby'])) : 'event_date';
+		$req_order = isset($_REQUEST['order']) && in_array(strtoupper($_REQUEST['order']), array('ASC', 'DESC'), true) ? strtoupper($_REQUEST['order']) : 'ASC';
 
 		// whitelist allowable ORDER BY clauses
 		$allowed_orderby = array(
-			'event_name'     => "ORDER BY p.post_content",
-			'event_date'     => "ORDER BY CONVERT(LEFT(p.post_title, LENGTH(p.post_title) - 6), SIGNED INTEGER) " . $req_order . ", CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%%m%%d') ELSE DATE_FORMAT(p.post_title,'%%m%%d') END",
-			'event_type'     => "ORDER BY t.name " . $req_order,
+			'event_name' => "ORDER BY p.post_content",
+			'event_date' => "ORDER BY CONVERT(LEFT(p.post_title, LENGTH(p.post_title) - 6), SIGNED INTEGER) " . $req_order . ", CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%%m%%d') ELSE DATE_FORMAT(p.post_title,'%%m%%d') END",
+			'event_type' => "ORDER BY t.name " . $req_order,
 			'event_modified' => "ORDER BY p.post_modified " . $req_order,
 		);
 
-		$orderby = isset( $allowed_orderby[ $req_orderby ] ) ? $allowed_orderby[ $req_orderby ] : "ORDER BY p.post_title " . $req_order;
+		$orderby = isset($allowed_orderby[$req_orderby]) ? $allowed_orderby[$req_orderby] : "ORDER BY p.post_title " . $req_order;
 
 		$sql = "SELECT p.ID, p.post_title AS event_date, p.post_name AS slug, p.post_content AS event_name, t.name AS event_type, p.post_modified AS event_modified, t.slug AS event_slug
 				FROM {$wpdb->posts} p
@@ -215,42 +221,40 @@ class TDIH_List_Table extends WP_List_Table
 	{
 		global $wpdb;
 
+		// capability & nonce
+		if (!(current_user_can('manage_tdih_events') || current_user_can('manage_options'))) {
+			wp_die(__('You do not have permission to delete events.', 'this-day-in-history'));
+		}
 		check_admin_referer('bulk-events');
 
-		$ids = (array) $_REQUEST['event'];
-
-		foreach ($ids as $i => $value) {
-
-			$result = wp_delete_post($ids[$i], true);
+		$ids = isset($_REQUEST['event']) ? (array) $_REQUEST['event'] : array();
+		foreach ($ids as $value) {
+			$id = absint($value);
+			if ($id) {
+				wp_delete_post($id, true);
+			}
 		}
 
 		$url = add_query_arg(array('message' => 4), admin_url('admin.php?page=this-day-in-history'));
-
-		wp_redirect($url);
+		wp_redirect(esc_url_raw($url));
+		exit;
 	}
 
 	private function date_add_era($date)
 	{
-
 		$d = substr($date, 0, 1) == '-' ? new DateTime(substr($date, 1)) : new DateTime($date);
-
 		$date = substr($date, 0, 1) == '-' ? $d->format($this->date_format) . $this->era_mark : $d->format($this->date_format);
-
 		return $date;
 	}
 
 	private function date_check($date)
 	{
-
 		if (preg_match("/^-?(\d{4})-(\d{2})-(\d{2})$/", $date, $matches)) {
-
 			$year = $matches[1] == '0000' ? '2000' : $matches[1];
-
 			if (checkdate($matches[2], $matches[3], $year)) {
 				return true;
 			}
 		}
-
 		return false;
 	}
 
@@ -317,12 +321,17 @@ class TDIH_List_Table extends WP_List_Table
 	private function item_add()
 	{
 
+		// Capability & nonce
+		if (!(current_user_can('manage_tdih_events') || current_user_can('manage_options'))) {
+			wp_die(__('You do not have permission to add events.', 'this-day-in-history'));
+		}
 		check_admin_referer('this_day_in_history_add_edit');
 
-		$event_date = $this->date_reorder($_POST['event_date_v']);
-		$event_slug = sanitize_title_with_dashes($_POST['event_date_v']);
-		$event_name = wp_kses_post($_POST['event_name_v']);
-		$event_type = $_POST['event_type_v'];
+		$event_date_raw = isset($_POST['event_date_v']) ? sanitize_text_field(wp_unslash($_POST['event_date_v'])) : '';
+		$event_date = $this->date_reorder($event_date_raw);
+		$event_slug = sanitize_title_with_dashes($event_date_raw);
+		$event_name = isset($_POST['event_name_v']) ? wp_kses_post(wp_unslash($_POST['event_name_v'])) : '';
+		$event_type = isset($_POST['event_type_v']) ? sanitize_text_field(wp_unslash($_POST['event_type_v'])) : '';
 
 		$error = $this->validate_event($event_date, $event_name);
 
@@ -340,15 +349,15 @@ class TDIH_List_Table extends WP_List_Table
 				'post_name' => $event_slug,
 				'post_content' => $event_name,
 				'post_type' => 'tdih_event',
-				'tax_input' => $event_type == -1 ? '' : array('event_type' => $event_type)
+				'tax_input' => $event_type === '' || (int) $event_type === -1 ? '' : array('event_type' => $event_type)
 			);
 
 			$result = wp_insert_post($post);
 		}
 
-		$url = add_query_arg(array('message' => 1), admin_url('?page=this-day-in-history'));
-
-		wp_redirect($url);
+		$url = add_query_arg(array('message' => 1), admin_url('admin.php?page=this-day-in-history'));
+		wp_redirect(esc_url_raw($url));
+		exit;
 	}
 
 	private function item_add_edit()
@@ -357,9 +366,13 @@ class TDIH_List_Table extends WP_List_Table
 
 		if ($this->current_action() == 'edit') {
 
-			$id = (int) $_GET['id'];
-
-			$event = $wpdb->get_row("SELECT ID, post_title AS event_date, post_content AS event_name, post_name as event_slug FROM " . $wpdb->prefix . "posts WHERE ID=" . $id);
+			$id = isset($_GET['id']) ? absint(wp_unslash($_GET['id'])) : 0;
+			$event = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT ID, post_title AS event_date, post_content AS event_name, post_name AS event_slug FROM {$wpdb->posts} WHERE ID = %d",
+					$id
+				)
+			);
 
 			$event->event_date = $this->date_add_era($event->event_date);
 
@@ -398,8 +411,8 @@ class TDIH_List_Table extends WP_List_Table
 					<?php wp_nonce_field('this_day_in_history_add_edit'); ?>
 					<div class="form-field form-required">
 						<label for="event_date_v"><?php _e('Date', 'this-day-in-history'); ?></label>
-						<input type="text" name="event_date_v" id="event_date_v" value="<?php echo $event->event_date; ?>"
-							required="required" />
+						<input type="text" name="event_date_v" id="event_date_v"
+							value="<?php echo esc_attr($event->event_date); ?>" required="required" />
 						<p><?php printf(__('The date the event occured (enter date in %s format).', 'this-day-in-history'), $this->date_description); ?>
 						</p>
 					</div>
@@ -472,37 +485,37 @@ class TDIH_List_Table extends WP_List_Table
 
 	private function item_update()
 	{
-
+		// Capability & nonce
+		if (!(current_user_can('manage_tdih_events') || current_user_can('manage_options'))) {
+			wp_die(__('You do not have permission to update events.', 'this-day-in-history'));
+		}
 		check_admin_referer('this_day_in_history_add_edit');
 
-		$id = (int) $_POST['id'];
-		$event_date = $this->date_reorder($_POST['event_date_v']);
-		$event_slug = sanitize_title_with_dashes($_POST['event_date_v']);
-		$event_name = wp_kses_post($_POST['event_name_v']);
-		$event_type = $_POST['event_type_v'];
+		$id = isset($_POST['id']) ? absint(wp_unslash($_POST['id'])) : 0;
+		$event_date_raw = isset($_POST['event_date_v']) ? sanitize_text_field(wp_unslash($_POST['event_date_v'])) : '';
+		$event_date = $this->date_reorder($event_date_raw);
+		$event_slug = sanitize_title_with_dashes($event_date_raw);
+		$event_name = isset($_POST['event_name_v']) ? wp_kses_post(wp_unslash($_POST['event_name_v'])) : '';
+		$event_type = isset($_POST['event_type_v']) ? sanitize_text_field(wp_unslash($_POST['event_type_v'])) : '';
 
 		$error = $this->validate_event($event_date, $event_name);
 
 		if ($error) {
-
 			wp_die($error, 'Error', array("back_link" => true));
-
 		} else {
-
 			$post = array(
 				'ID' => $id,
 				'post_title' => $event_date,
 				'post_name' => $event_slug,
 				'post_content' => $event_name,
-				'tax_input' => $event_type = array('event_type' => $event_type == '-1' ? '' : $event_type)
+				// build tax_input correctly rather than using assignment in place
+				'tax_input' => $event_type === '' || (int) $event_type === -1 ? '' : array('event_type' => $event_type)
 			);
-
 			$result = wp_update_post($post);
 		}
-
-		$url = add_query_arg(array('message' => 2), admin_url('?page=this-day-in-history'));
-
-		wp_redirect($url);
+		$url = add_query_arg(array('message' => 2), admin_url('admin.php?page=this-day-in-history'));
+		wp_redirect(esc_url_raw($url));
+		exit;
 	}
 
 	private function validate_event($event_date, $event_name)

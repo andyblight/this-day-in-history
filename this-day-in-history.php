@@ -159,9 +159,7 @@ function tdih_menu_correction($parent_file) {
 	global $current_screen;
 
 	$taxonomy = $current_screen->taxonomy;
-
 	if ($taxonomy == 'event_type') { $parent_file = 'this-day-in-history'; }
-
 	return $parent_file;
 }
 
@@ -171,16 +169,13 @@ add_action('parent_file', 'tdih_menu_correction');
 /* Add plugin settings */
 
 function tdih_options_menu() {
-
 	add_options_page('This Day In History Options', 'This Day In History', 'manage_options', 'tdih-settings', 'tdih_options');
 }
 
 add_action('admin_menu', 'tdih_options_menu');
 
 function tdih_options() {
-
 	if (!current_user_can('manage_options')) { wp_die(__('You do not have sufficient permissions to access this page.', 'this-day-in-history')); }
-
 	?>
 		<div class="wrap">
 			<h2><?php _e('This Day In History Options', 'this-day-in-history'); ?></h2>
@@ -194,7 +189,6 @@ function tdih_options() {
 }
 
 function tdih_admin_init(){
-
 	register_setting('tdih_options', 'tdih_options', 'tdih_options_validate');
 	add_settings_section('tdih_display', __('Display Settings', 'this-day-in-history'), 'tdih_display_section_text', 'tdih');
 	add_settings_field('date_format', __('Event Date Display Format', 'this-day-in-history'), 'tdih_date_format', 'tdih', 'tdih_display');
