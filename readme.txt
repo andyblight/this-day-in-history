@@ -2,8 +2,8 @@
 Contributors: BrokenCrust, Andy Blight.
 Tags: history, today in history, on this day, this day in history, birthday, events, thought, word, of the day
 Requires at least: 4.4
-Tested up to: 5.8
-Stable tag: 3.8.2
+Tested up to: 6.8.2
+Stable tag: 3.9.0
 License: GPLv2 or later
 
 This "On This Day" plugin allows you to enter historic or future events and display them via the included widget and shortcodes.

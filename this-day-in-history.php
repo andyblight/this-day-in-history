@@ -2,15 +2,16 @@
 /*
 Plugin Name: This Day In History
 Description: This "On This Day" plugin allows you to enter historic or future events and display them via the included widget and shortcodes.
-Author: BrokenCrust
-Version: 3.8.2
-Author URI: https://brokencrust.com/
-Last Updated: 02 April 2021
+Author: Andy Blight
+Version: 3.9.0
+Author URI: https://github.com/andyblight/this-day-in-history-2
+Last Updated: 26 August 2025
 License: GPLv2 or later
 Text Domain: this-day-in-history
 */
 
 /*
+	Copyright 2025 Andy Blight.
 	Copyright 2011-20 BrokenCrust
 
 	This program is free software; you can redistribute it and/or modify
