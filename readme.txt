@@ -94,6 +94,8 @@ Example use:
 
 = 3.9.0 =
 * Added Andy Blight as contributor.
+* Fixed many security issues.
+* Documented how the plugin works in design.md.
 
 = 3.8.2 =
 * Fixed php encoding bug in the event template (bug fix)
