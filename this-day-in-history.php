@@ -45,36 +45,43 @@ register_deactivation_hook(__FILE__, array('tdih_init', 'on_deactivate'));
 /* Database updates */
 
 function tdih_db_updates() {
-	global $wpdb;
+    global $wpdb;
 
-	if (intval(get_option('tdih_db_version')) <> TDIH_DB_VERSION) {
+    // run only in admin to avoid unexpected front-end work and require capability
+    if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
 
-		$options = get_option('tdih_options');
+    if ( intval( get_option( 'tdih_db_version' ) ) !== TDIH_DB_VERSION ) {
 
-		// add leading 0 to month and day (for version 3)
-		$result = $wpdb->query("UPDATE ".$wpdb->prefix."posts SET post_title = DATE_FORMAT(post_title,'%Y-%m-%d') WHERE post_type = 'tdih_event'");
+        $options = get_option( 'tdih_options' );
 
-		// update the options (for version 3)
-		$new_options = array(
-			'date_format' => $options['date_format'] == '%Y-%m-%d' ? 'YYYY-MM-DD' : ($options['date_format'] == '%d-%m-%Y' ? 'DD-MM-YYYY' : 'MM-DD-YYYY'),
-			'era_mark' => 1,
-			'no_events' => $options['no_events'],
-			'exclude_search' => 1
-		);
+        // add leading 0 to month and day (for version 3)
+        $result = $wpdb->query( "UPDATE {$wpdb->posts} SET post_title = DATE_FORMAT(post_title,'%Y-%m-%d') WHERE post_type = 'tdih_event'" );
 
-		update_option('tdih_options', $new_options);
+        // update the options (for version 3)
+        $new_options = array(
+            'date_format'    => $options['date_format'] == '%Y-%m-%d' ? 'YYYY-MM-DD' : ( $options['date_format'] == '%d-%m-%Y' ? 'DD-MM-YYYY' : 'MM-DD-YYYY' ),
+            'era_mark'       => 1,
+            'no_events'      => $options['no_events'],
+            'exclude_search' => 1,
+        );
 
-		// rebuild the slugs to reflect the chosen date format (for version 3)
-		$format = $new_options['date_format'] == 'YYYY-MM-DD' ? '%Y-%m-%d' : ($options['date_format'] == 'DD-MM-YYYY' ? '%d-%m-%Y' : '%m-%d-%Y');
+        update_option( 'tdih_options', $new_options );
 
-		$result = $wpdb->query("UPDATE ".$wpdb->prefix."posts SET post_name = DATE_FORMAT(post_title, '".$format."') WHERE post_type = 'tdih_event'");
+        // rebuild the slugs to reflect the chosen date format (for version 3)
+        $format = $new_options['date_format'] === 'YYYY-MM-DD' ? '%Y-%m-%d' : ( $options['date_format'] === 'DD-MM-YYYY' ? '%d-%m-%Y' : '%m-%d-%Y' );
 
-		// update the database version
-		update_option('tdih_db_version', TDIH_DB_VERSION);
-	}
+        $result = $wpdb->query( "UPDATE {$wpdb->posts} SET post_name = DATE_FORMAT(post_title, '" . esc_sql( $format ) . "') WHERE post_type = 'tdih_event'" );
+
+        // update the database version
+        update_option( 'tdih_db_version', TDIH_DB_VERSION );
+    }
 }
 
-add_action('plugins_loaded', 'tdih_db_updates');
+// Replace plugins_loaded hook (runs on every request) with admin_init
+remove_action( 'plugins_loaded', 'tdih_db_updates' ); // safe noop if not hooked
+add_action( 'admin_init', 'tdih_db_updates' );
 
 
 /* Include the widget */
@@ -105,16 +112,22 @@ add_action('admin_enqueue_scripts', 'load_tdih_styles');
 /* Add historic event item to the Admin Bar "New" drop down */
 
 function tdih_add_event_to_menu() {
-	global $wp_admin_bar;
+    global $wp_admin_bar;
 
-	if (!current_user_can('manage_tdih_events') || !is_admin_bar_showing()) { return; }
+    if ( ! current_user_can( 'manage_tdih_events' ) || ! is_admin_bar_showing() ) { return; }
 
-	$wp_admin_bar->add_node(array(
-		'id'     => 'add-tdih-event',
-		'parent' => 'new-content',
-		'title'  => __('Historic Event', 'this-day-in-history'),
-		'href'   => admin_url('admin.php?page=this-day-in-history&action=new'),
-		'meta'   => false));
+    $href = add_query_arg(
+        array( 'page' => 'this-day-in-history', 'action' => 'new' ),
+        admin_url( 'admin.php' )
+    );
+
+    $wp_admin_bar->add_node( array(
+        'id'     => 'add-tdih-event',
+        'parent' => 'new-content',
+        'title'  => __( 'Historic Event', 'this-day-in-history' ),
+        'href'   => esc_url( $href ),
+        'meta'   => false,
+    ) );
 }
 
 add_action('admin_bar_menu', 'tdih_add_event_to_menu', 999);
@@ -124,15 +137,26 @@ add_action('admin_bar_menu', 'tdih_add_event_to_menu', 999);
 
 function tdih_glance_items() {
 
-	$info = get_post_type_object('tdih_event');
-	$events = wp_count_posts('tdih_event');
+    $info   = get_post_type_object( 'tdih_event' );
+    $events = wp_count_posts( 'tdih_event' );
 
-	echo '</ul><ul><li class="tdih_event-count"><a href="'.admin_url('admin.php?page=this-day-in-history').'">'.number_format_i18n($events->publish).' '._n($info->labels->singular_name, $info->labels->name, intval($events->publish)).'</a></li>';
+    // use esc_url / esc_html / number_format_i18n
+    printf(
+        '</ul><ul><li class="tdih_event-count"><a href="%s">%s %s</a></li>',
+        esc_url( admin_url( 'admin.php?page=this-day-in-history' ) ),
+        esc_html( number_format_i18n( $events->publish ) ),
+        esc_html( _n( $info->labels->singular_name, $info->labels->name, intval( $events->publish ) ) )
+    );
 
-	$label = get_taxonomy_labels(get_taxonomy('event_type'));
-	$types = number_format_i18n(wp_count_terms('event_type'));
+    $label = get_taxonomy_labels( get_taxonomy( 'event_type' ) );
+    $types = number_format_i18n( wp_count_terms( 'event_type' ) );
 
-	echo '<li class="tdih_event_type-count"><a href="'.admin_url('edit-tags.php?taxonomy=event_type').'">'.number_format_i18n($types).' '._n($label->singular_name, $label->name, intval($types)).'</a></li>';
+    printf(
+        '<li class="tdih_event_type-count"><a href="%s">%s %s</a></li></ul>',
+        esc_url( admin_url( 'edit-tags.php?taxonomy=event_type' ) ),
+        esc_html( $types ),
+        esc_html( _n( $label->singular_name, $label->name, intval( $types ) ) )
+    );
 }
 
 add_filter('dashboard_glance_items', 'tdih_glance_items', 10, 1);
@@ -207,70 +231,70 @@ function tdih_display_section_text() {
 
 function tdih_date_format() {
 
-	$options = get_option('tdih_options');
+    $options = get_option( 'tdih_options' );
 
-	$formats = array(1 => 'YYYY-MM-DD', 2 => 'MM-DD-YYYY', 3 => 'DD-MM-YYYY');
+    $formats = array( 1 => 'YYYY-MM-DD', 2 => 'MM-DD-YYYY', 3 => 'DD-MM-YYYY' );
 
-	$labels = array(1 => __('Year First (YYYY-MM-DD)', 'this-day-in-history'), 2 => __('Month First (MM-DD-YYYY)', 'this-day-in-history'), 3 => __('Day First (DD-MM-YYYY)', 'this-day-in-history'));
+    $labels = array(
+        1 => __( 'Year First (YYYY-MM-DD)', 'this-day-in-history' ),
+        2 => __( 'Month First (MM-DD-YYYY)', 'this-day-in-history' ),
+        3 => __( 'Day First (DD-MM-YYYY)', 'this-day-in-history' ),
+    );
 
-	echo '<select id="tdih_date_format" name="tdih_options[date_format]">';
+    echo '<select id="tdih_date_format" name="tdih_options[date_format]">';
 
-	for ($p = 1; $p < 4; $p++) {
+    for ( $p = 1; $p < 4; $p++ ) {
 
-		if ($formats[$p] == $options['date_format']) {
+        $val   = esc_attr( $formats[ $p ] );
+        $label = esc_html( $labels[ $p ] );
 
-			echo '<option selected="selected" value="'.$formats[$p].'">'.$labels[$p].'</option>';
+        if ( isset( $options['date_format'] ) && $formats[ $p ] === $options['date_format'] ) {
+            echo '<option selected="selected" value="' . $val . '">' . $label . '</option>';
+        } else {
+            echo '<option value="' . $val . '">' . $label . '</option>';
+        }
+    }
 
-		} else {
-
-			echo '<option value="'.$formats[$p].'">'.$labels[$p].'</option>';
-		}
-	}
-
-	echo "</select>";
-	echo '<p class="description">'.__('Defines the date format for displaying and entering dates.', 'this-day-in-history').'</p>';
+    echo '</select>';
+    echo '<p class="description">' . esc_html__( 'Defines the date format for displaying and entering dates.', 'this-day-in-history' ) . '</p>';
 }
 
 function tdih_era_mark() {
+    $options = get_option( 'tdih_options' );
 
-	$options = get_option('tdih_options');
-
-	?>
-		<select id="tdih_era_mark" name="tdih_options[era_mark]">
-			<option <?php echo $options['era_mark'] == 1 ? 'selected="selected"' : ''; ?> value="1"><?php _e('Use BC', 'this-day-in-history'); ?></option>
-			<option <?php echo $options['era_mark'] == 2 ? 'selected="selected"' : ''; ?> value="2"><?php _e('Use BCE', 'this-day-in-history'); ?></option>
-		</select>
-		<p class="description"><?php _e('Defines how to show dates with a negative year.', 'this-day-in-history'); ?></p>
-	<?php
+    $era = isset( $options['era_mark'] ) ? (int) $options['era_mark'] : 1;
+    ?>
+        <select id="tdih_era_mark" name="tdih_options[era_mark]">
+            <option <?php echo $era === 1 ? 'selected="selected"' : ''; ?> value="1"><?php _e('Use BC', 'this-day-in-history'); ?></option>
+            <option <?php echo $era === 2 ? 'selected="selected"' : ''; ?> value="2"><?php _e('Use BCE', 'this-day-in-history'); ?></option>
+        </select>
+        <p class="description"><?php _e('Defines how to show dates with a negative year.', 'this-day-in-history'); ?></p>
+    <?php
 }
 
 function tdih_exclude_search() {
-
-	$options = get_option('tdih_options');
-
-	?>
-		<select id="tdih_exclude_search" name="tdih_options[exclude_search]">
-			<option <?php echo $options['exclude_search'] == 1 ? 'selected="selected"' : ''; ?> value="1"><?php _e('Yes', 'this-day-in-history'); ?></option>
-			<option <?php echo $options['exclude_search'] == 0 ? 'selected="selected"' : ''; ?> value="0"><?php _e('No', 'this-day-in-history'); ?></option>
-		</select>
-		<p class="description"><?php _e('Exclude Historic Events from search results?', 'this-day-in-history'); ?></p>
-	<?php
+    $options = get_option( 'tdih_options' );
+    $exclude = isset( $options['exclude_search'] ) ? (int) $options['exclude_search'] : 1;
+    ?>
+        <select id="tdih_exclude_search" name="tdih_options[exclude_search]">
+            <option <?php echo $exclude === 1 ? 'selected="selected"' : ''; ?> value="1"><?php _e('Yes', 'this-day-in-history'); ?></option>
+            <option <?php echo $exclude === 0 ? 'selected="selected"' : ''; ?> value="0"><?php _e('No', 'this-day-in-history'); ?></option>
+        </select>
+        <p class="description"><?php _e('Exclude Historic Events from search results?', 'this-day-in-history'); ?></p>
+    <?php
 }
 
 function tdih_no_events() {
-
-	$options = get_option('tdih_options');
-
-	?>
-		<input name='tdih_options[no_events]' type='text' value='<?php echo $options['no_events']; ?>' />
-		<p class="description"><?php _e('If you prefer the widget and shortcode not to be displayed when no events match, then leave this field empty.', 'this-day-in-history'); ?></p>
-	<?php
+    $options = get_option( 'tdih_options' );
+    $value   = isset( $options['no_events'] ) ? $options['no_events'] : '';
+    ?>
+        <input name='tdih_options[no_events]' type='text' value='<?php echo esc_attr( $value ); ?>' />
+        <p class="description"><?php _e('If you prefer the widget and shortcode not to be displayed when no events match, then leave this field empty.', 'this-day-in-history'); ?></p>
+    <?php
 }
 
 function tdih_options_validate($input) {
-
 	//nowt
-
 	return $input;
 }
 
@@ -467,14 +491,26 @@ add_filter('manage_edit-event_type_columns', 'tdih_manage_event_type_event_colum
 
 /* Change event_type taxonomy screen count and link */
 
-function tdih_manage_event_type_column($display, $column, $term_id) {
+function tdih_manage_event_type_column( $display, $column, $term_id ) {
 
-	if ('events' === $column) {
+    if ( 'events' === $column ) {
 
-		$term = get_term($term_id, 'event_type');
+        $term = get_term( $term_id, 'event_type' );
 
-		echo '<a href="admin.php?page=this-day-in-history&type='.$term->slug.'">'.$term->count.'</a>';
-	}
+        $url = add_query_arg(
+            array(
+                'page' => 'this-day-in-history',
+                'type' => isset( $term->slug ) ? $term->slug : '',
+            ),
+            admin_url( 'admin.php' )
+        );
+
+        printf(
+            '<a href="%s">%s</a>',
+            esc_url( $url ),
+            esc_html( number_format_i18n( isset( $term->count ) ? $term->count : 0 ) )
+        );
+    }
 }
 
 add_action('manage_event_type_custom_column', 'tdih_manage_event_type_column', 10, 3);
@@ -551,19 +587,20 @@ add_filter('single_template', 'load_tdih_event_template');
 /* Add custom admin notices */
 
 function tdih_admin_notices(){
+    if ( isset( $_REQUEST['page'] ) && $_REQUEST['page'] === 'this-day-in-history' ) {
 
-	if (isset($_REQUEST['page']) && $_REQUEST['page'] == 'this-day-in-history') {
+        $m = isset( $_GET['message'] ) ? (int) $_GET['message'] : 0;
 
-		$m =  isset( $_GET['message']) ? (int) $_GET['message'] : 0;
-
-		$messages = array(
-			1 => __('Event <strong>created</strong>', 'this-day-in-history'),
-			2 => __('Event <strong>updated</strong>', 'this-day-in-history'),
-			3 => __('Event <strong>deleted</strong>', 'this-day-in-history'),
-			4 => __('Events <strong>deleted</strong>', 'this-day-in-history')
-		);
-		if (isset($messages[$m])) { printf('<div class="updated"><p>%s</p></div>', $messages[$m]); }
-	}
+        $messages = array(
+            1 => __( 'Event <strong>created</strong>', 'this-day-in-history' ),
+            2 => __( 'Event <strong>updated</strong>', 'this-day-in-history' ),
+            3 => __( 'Event <strong>deleted</strong>', 'this-day-in-history' ),
+            4 => __( 'Events <strong>deleted</strong>', 'this-day-in-history' ),
+        );
+        if ( isset( $messages[ $m ] ) ) {
+            printf( '<div class="updated"><p>%s</p></div>', wp_kses_post( $messages[ $m ] ) );
+        }
+    }
 }
 
 
