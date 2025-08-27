@@ -16,17 +16,16 @@ This plugin allows you to enter and manage different kinds of events that you th
 
 == Installation ==
 
-Installing is pretty easy takes only a minute or two.
+1. Download the ZIP from the GitHub release page.
 
-1. Upload 'this-day-in-history' directory to your '/wp-content/plugins/' directory.
-
-2. Activate the plugin through the 'Plugins' screen in WordPress.
+2. In WP Admin go to Plugins → Add New → Upload Plugin, choose the ZIP, and install.
 
 3. On the 'Widgets' sub-menu of 'Appearance' you will find a new widget type called 'This Day In History'; alternatively use a shortcode in a post or page.
 
 4. Add this widget, to your themes widget display areas, select a title and click Save.
 
 5. Enter historic events via the new 'Historic Events' admin page.  These will be automatically displayed by the widget on the anniversary of the day that they occurred.
+
 
 == Shortcodes ==
 
@@ -284,5 +283,3 @@ Example use:
 
 = 0.1 =
 * Initial Release
-
-

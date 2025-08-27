@@ -1,0 +1,78 @@
+name: Build and publish release (WordPress plugin)
+
+on:
+  push:
+    tags:
+      - 'v*'          # trigger on version tags like v1.0.0
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tags are present
+        run: git fetch --tags --prune
+
+      - name: Set RELEASE_TAG env
+        run: echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+
+      - name: Validate plugin header (Name and Version)
+        run: |
+          PLUGIN_FILE="./this-day-in-history.php"
+          if [ ! -f "$PLUGIN_FILE" ]; then
+            echo "Plugin file not found: $PLUGIN_FILE" >&2
+            exit 1
+          fi
+
+          # Check for Plugin Name header
+          if ! grep -Ei '^[[:space:]]*[/*#@-]*[[:space:]]*Plugin Name:' "$PLUGIN_FILE" >/dev/null; then
+            echo "Missing 'Plugin Name' header in $PLUGIN_FILE" >&2
+            exit 1
+          fi
+
+          # Check for Version header
+          if ! grep -Ei '^[[:space:]]*[/*#@-]*[[:space:]]*Version:' "$PLUGIN_FILE" >/dev/null; then
+            echo "Missing 'Version' header in $PLUGIN_FILE" >&2
+            exit 1
+          fi
+
+          # Extract Version value
+          PLUGIN_VERSION=$(grep -Ei '^[[:space:]]*[/*#@-]*[[:space:]]*Version:' "$PLUGIN_FILE" | head -n1 | sed -E 's/^[^:]*:[[:space:]]*//I' | tr -d '\r')
+          echo "Found plugin version: $PLUGIN_VERSION"
+
+          # If a tag is present, compare (warn only)
+          TAG="${RELEASE_TAG:-}"
+          if [ -n "$TAG" ]; then
+            TAG_NO_V="${TAG#v}"
+            if [ "$TAG_NO_V" != "$PLUGIN_VERSION" ]; then
+              echo "Warning: tag ($TAG) and plugin version ($PLUGIN_VERSION) do not match." >&2
+            fi
+          fi
+
+      - name: Prepare release directory
+        run: mkdir -p release
+
+      - name: Create plugin ZIP
+        # Pack the plugin files into a top-level folder so WordPress can install directly.
+        run: |
+          PLUGIN_DIR="this-day-in-history"
+          OUT="release/${PLUGIN_DIR}-${RELEASE_TAG}.zip"
+          # Create a clean temporary directory with plugin contents at top-level folder
+          TMPDIR="$(mktemp -d)"
+          mkdir -p "${TMPDIR}/${PLUGIN_DIR}"
+          rsync -a --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='*.zip' ./ "${TMPDIR}/${PLUGIN_DIR}/"
+          (cd "${TMPDIR}" && zip -r "${GITHUB_WORKSPACE}/${OUT}" "${PLUGIN_DIR}")
+          echo "Created: ${OUT}"
+
+      - name: Create GitHub Release and upload ZIP
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          files: release/this-day-in-history-${{ env.RELEASE_TAG }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
