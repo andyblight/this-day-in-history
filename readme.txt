@@ -1,9 +1,9 @@
 === This Day In History ===
-Contributors: BrokenCrust, Andy Blight.
+Contributors: BrokenCrust, AndyBlight.
 Tags: history, today in history, on this day, this day in history, birthday, events, thought, word, of the day
 Requires at least: 4.4
 Tested up to: 6.8.2
-Stable tag: 3.9.0
+Stable tag: 3.10.2.
 License: GPLv2 or later
 
 This "On This Day" plugin allows you to enter historic or future events and display them via the included widget and shortcodes.
@@ -92,10 +92,19 @@ NB:
 Example use:
 == Changelog ==
 
-= 3.9.0 =
+= 3.10.2 =
 * Added Andy Blight as contributor.
 * Fixed many security issues.
 * Documented how the plugin works in design.md.
+
+= 3.10.1 =
+* Fix issue with last week of year using period = 'c' (bug fix)
+
+= 3.10 =
+* Added show_age to `[tdih_tab]` shortcode
+
+= 3.9 =
+* Replaced depreciated function like_escape()
 
 = 3.8.2 =
 * Fixed php encoding bug in the event template (bug fix)
