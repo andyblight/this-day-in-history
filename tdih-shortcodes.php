@@ -113,8 +113,9 @@ function tdih_tab_shortcode($atts) {
 
 	$options = get_option('tdih_options');
 
-	extract(shortcode_atts(array('show_date' => 1, 'show_dow' => 0, 'show_head' => 1, 'show_link' => 0, 'show_type' => 1, 'order_dmy' => 0, 'type' => false, 'day' => false, 'month' => false, 'year' => false, 'period' => false, 'period_days' => false, 'date_format' => false, 'class' => ''), $atts));
+	extract(shortcode_atts(array('show_age' => 0, 'show_date' => 1, 'show_dow' => 0, 'show_head' => 1, 'show_link' => 0, 'show_type' => 1, 'order_dmy' => 0, 'type' => false, 'day' => false, 'month' => false, 'year' => false, 'period' => false, 'period_days' => false, 'date_format' => false, 'class' => ''), $atts));
 
+	$show_age = intval($show_age) == 0 ? false : true;
 	$show_date = intval($show_date) == 0 ? false : true;
 	$show_dow = intval($show_dow) == 0 ? false : true;
 	$show_head = intval($show_head) == 0 ? false : true;
@@ -178,6 +179,14 @@ function tdih_tab_shortcode($atts) {
 				$event_date = substr($events[$e]->event_date, 0, 1) == '-' ? $d->format($format).($options['era_mark'] == 1 ? __(' BC', 'this-day-in-history') : __(' BCE', 'this-day-in-history')) : $d->format($format);
 
 				$text .= '<td class="tdih_event_date">'.$event_date.'</td>';
+			}
+
+			if ($show_age) {
+				$d = new DateTime($events[$e]->event_date);
+				$now = new DateTime();
+				$interval = $now->diff($d);
+				$age = $interval->y;
+				$text .= '<td class="tdih_event_age">'.$age.'</td>';
 			}
 
 			if ($show_type) { $text .= '<td class="tdih_event_type">'.$events[$e]->event_type.'</td>'; }
@@ -316,8 +325,14 @@ function tdih_when_clause($period, $period_days, $day, $month, $year=false) {
 						$stop->add(new DateInterval('P'.$until.'D'));
 					}
 				}
+				if ($start->format('m') == '12' && $stop->format('m') == '01' ) {
 
-				$when = " AND CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%m%d') ELSE DATE_FORMAT(p.post_title,'%m%d') END BETWEEN '".$start->format('md')."' AND '".$stop->format('md')."'";
+					$when = " AND (CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%m%d') ELSE DATE_FORMAT(p.post_title,'%m%d') END BETWEEN '".$start->format('md')."' AND '1231' OR CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%m%d') ELSE DATE_FORMAT(p.post_title,'%m%d') END BETWEEN '0101' AND '".$stop->format('md')."')";
+
+				} else {
+
+					$when = " AND CASE SUBSTR(p.post_title, 1, 1) WHEN '-' THEN DATE_FORMAT(SUBSTR(p.post_title, 2), '%m%d') ELSE DATE_FORMAT(p.post_title,'%m%d') END BETWEEN '".$start->format('md')."' AND '".$stop->format('md')."'";
+				}
 
 				return $when;
 

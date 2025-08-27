@@ -3,15 +3,14 @@
 Plugin Name: This Day In History
 Description: This "On This Day" plugin allows you to enter historic or future events and display them via the included widget and shortcodes.
 Author: BrokenCrust
-Version: 3.8.2
+Version: 3.10.1
 Author URI: https://brokencrust.com/
-Last Updated: 02 April 2021
 License: GPLv2 or later
 Text Domain: this-day-in-history
 */
 
 /*
-	Copyright 2011-20 BrokenCrust
+	Copyright 2011-22 BrokenCrust
 
 	This program is free software; you can redistribute it and/or modify
 	it under the terms of the GNU General Public License, version 2, as
@@ -339,8 +338,9 @@ function tdih_add_help_tab() {
 	$screen->add_help_tab(array('id' => 'tdih_shortcode', 'title' => __('tdih Shortcode'), 'content' => $content));
 
 	$content  = '<p>'.__('You can add a <code>[tdih_tab]</code> shortcode to any post or page to display a table of events.', 'this-day-in-history').'</p>';
-	$content .= '<p>'.__('There are fourteen optional attributes for this shortcode:', 'this-day-in-history').'</p>';
+	$content .= '<p>'.__('There are fifteen optional attributes for this shortcode:', 'this-day-in-history').'</p>';
 	$content .= '<ul>';
+	$content .= '<li>'.__('show_age (0, 1) - 1 shows the age of the event in years and 0 does not (default).', 'this-day-in-history').'</li>';
 	$content .= '<li>'.__('show_date (0, 1) - 1 shows the date (default) and 0 does not.', 'this-day-in-history').'</li>';
 	$content .= '<li>'.__('show_dow (0, 1) - 1 shows the day of the week and 0 does not (default).', 'this-day-in-history').'</li>';
 	$content .= '<li>'.__('show_head (0, 1) - 1 shows a header row (default) and 0 does not.', 'this-day-in-history').'</li>';

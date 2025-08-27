@@ -113,8 +113,8 @@ class TDIH_List_Table extends WP_List_Table {
 		$this->process_bulk_action();
 
 		$type = empty($_REQUEST['type']) ? '' : "AND t.slug='".$_REQUEST['type']."' ";
-
-		$filter = empty($_REQUEST['s']) ? '' : "AND (p.post_title LIKE '%".like_escape($_REQUEST['s'])."%' OR p.post_content LIKE '%".like_escape($_REQUEST['s'])."%') ";
+		
+		$filter = empty($_REQUEST['s']) ? '' : "AND (p.post_title LIKE '%".esc_sql($wpdb->esc_like($_REQUEST['s']))."%' OR p.post_content LIKE '%".esc_sql($wpdb->esc_like($_REQUEST['s']))."%') ";
 
 		$_REQUEST['orderby'] = empty($_REQUEST['orderby']) ? 'event_date' : $_REQUEST['orderby'];
 
