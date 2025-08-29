@@ -26,6 +26,68 @@ function tdih_format_year( $raw_year ) {
     return esc_html( intval( $raw ) );
 }
 
+/**
+ * Format a stored event date for display, removing any leading zero on the year.
+ *
+ * @param string $stored_date Stored date string (YYYY-MM-DD or -YYYY-MM-DD for BCE)
+ * @param string $php_format  PHP date() format (e.g. 'j/n/Y'). If empty, use admin setting.
+ * @return string Formatted date (BCE/BC appended if applicable)
+ */
+function tdih_format_date_for_display( $stored_date, $php_format = '' ) {
+    $options = get_option( 'tdih_options' );
+
+    // fallback to admin format mapping if no explicit format provided
+    if ( empty( $php_format ) ) {
+        $map = array(
+            'YYYY-MM-DD' => 'Y-m-d',
+            'MM-DD-YYYY' => 'm-d-Y',
+            'DD-MM-YYYY' => 'd-m-Y',
+        );
+        $admin = isset( $options['date_format'] ) ? $options['date_format'] : 'YYYY-MM-DD';
+        $php_format = isset( $map[ $admin ] ) ? $map[ $admin ] : 'Y-m-d';
+    }
+
+    $era_mark = isset( $options['era_mark'] ) && (int) $options['era_mark'] === 1 ? __( ' BC', 'this-day-in-history' ) : __( ' BCE', 'this-day-in-history' );
+
+    $is_bce = isset( $stored_date[0] ) && $stored_date[0] === '-';
+    $plain  = $is_bce ? substr( $stored_date, 1 ) : $stored_date;
+
+    try {
+        // Use DateTime to format other tokens safely
+        $dt = new DateTime( $plain );
+    } catch ( Exception $e ) {
+        return esc_html( $stored_date );
+    }
+
+    // If format includes full-year token 'Y', format parts around it and insert integer year
+    if ( strpos( $php_format, 'Y' ) !== false ) {
+        $year_int = intval( $dt->format( 'Y' ) );
+        $year_str = $year_int === 0 ? '' : (string) $year_int;
+
+        $parts = explode( 'Y', $php_format );
+        $formatted = '';
+        $last_index = count( $parts ) - 1;
+        foreach ( $parts as $i => $part ) {
+            // format each part (may contain other DateTime tokens)
+            $formatted .= $dt->format( $part );
+            // between parts insert the integer year
+            if ( $i < $last_index ) {
+                $formatted .= $year_str;
+            }
+        }
+    } else {
+        $formatted = $dt->format( $php_format );
+        // ensure we have a year string for BCE handling if needed
+        $year_str = intval( $dt->format( 'Y' ) ) === 0 ? '' : (string) intval( $dt->format( 'Y' ) );
+    }
+
+    if ( $is_bce && $year_str !== '' ) {
+        $formatted .= $era_mark;
+    }
+
+    return $formatted;
+}
+
 /* Add tdih shortcode */
 
 function tdih_shortcode($atts)
@@ -260,9 +322,7 @@ function tdih_tab_shortcode($atts)
 		$text .= '<tr>';
 
 		if ($show_date) {
-			$d = substr($e->event_date, 0, 1) == '-' ? new DateTime(substr($e->event_date, 1)) : new DateTime($e->event_date);
-			$event_date = substr($e->event_date, 0, 1) == '-' ? $d->format($format) . (isset($options['era_mark']) && $options['era_mark'] == 1 ? esc_html__(' BC', 'this-day-in-history') : esc_html__(' BCE', 'this-day-in-history')) : $d->format($format);
-			$text .= '<td class="tdih_event_date">' . esc_html($event_date) . '</td>';
+			$text .= '<td class="tdih_event_date">' . tdih_format_date_for_display( $e->event_date, $date_format ) . '</td>';
 		}
 
 		if ($show_age) {
