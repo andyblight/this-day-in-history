@@ -144,7 +144,6 @@ function tdih_shortcode($atts)
 add_shortcode('tdih', 'tdih_shortcode');
 
 
-
 /* Add tdih_tab shortcode */
 
 function tdih_tab_shortcode($atts)
@@ -154,6 +153,7 @@ function tdih_tab_shortcode($atts)
 	$options = get_option('tdih_options', array());
 
 	$defaults = array(
+		'show_age' => 0,
 		'show_date' => 1,
 		'show_dow' => 0,
 		'show_head' => 1,
@@ -172,12 +172,12 @@ function tdih_tab_shortcode($atts)
 
 	$attrs = shortcode_atts($defaults, $atts, 'tdih_tab');
 
+	$show_age = intval($attrs['show_age']) !== 0;
 	$show_date = intval($attrs['show_date']) !== 0;
 	$show_dow = intval($attrs['show_dow']) !== 0;
 	$show_head = intval($attrs['show_head']) !== 0;
 	$show_link = intval($attrs['show_link']) === 1 ? 1 : (intval($attrs['show_link']) === 2 ? 2 : 0);
 	$show_type = intval($attrs['show_type']) !== 0;
-
 	$order_dmy = intval($attrs['order_dmy']) !== 0;
 
 	$type = $attrs['type'] === false ? false : sanitize_text_field($attrs['type']);
@@ -230,6 +230,9 @@ function tdih_tab_shortcode($atts)
 		if ($show_date) {
 			$text .= '<th class="tdih_event_date">' . esc_html__('Date', 'this-day-in-history') . '</th>';
 		}
+		if ($show_age) {
+			$text .= '<th class="tdih_event_age">'.esc_html__('Age', 'this-day-in-history').'</th>';
+		}
 		if ($show_type) {
 			$text .= '<th class="tdih_event_type">' . esc_html__('Type', 'this-day-in-history') . '</th>';
 		}
@@ -245,6 +248,14 @@ function tdih_tab_shortcode($atts)
 			$d = substr($e->event_date, 0, 1) == '-' ? new DateTime(substr($e->event_date, 1)) : new DateTime($e->event_date);
 			$event_date = substr($e->event_date, 0, 1) == '-' ? $d->format($format) . (isset($options['era_mark']) && $options['era_mark'] == 1 ? esc_html__(' BC', 'this-day-in-history') : esc_html__(' BCE', 'this-day-in-history')) : $d->format($format);
 			$text .= '<td class="tdih_event_date">' . esc_html($event_date) . '</td>';
+		}
+
+		if ($show_age) {
+			$d = new DateTime($events[$e]->event_date);
+			$now = new DateTime();
+			$interval = $now->diff($d);
+			$age = $interval->y;
+			$text .= '<td class="tdih_event_age">'.$age.'</td>';
 		}
 
 		if ($show_type) {
