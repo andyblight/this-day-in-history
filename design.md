@@ -2,7 +2,7 @@
 
 ## Overview
 
-This overview of the code was provided by GPT4o.
+This overview of the code was provided by GPT4o and looks about right.
 
 This WordPress plugin, **"This Day In History"**, allows users to create, manage, and display historical or future events. It provides functionality through widgets, shortcodes, and admin interfaces. Here's an overview of how the plugin works:
 
@@ -60,7 +60,7 @@ This WordPress plugin, **"This Day In History"**, allows users to create, manage
 
 - **File**: this-day-in-history.php
     - Adds a menu item in the WordPress admin for managing events.
-    - Provides settings for customizing the plugin's behavior (e.g., date format, exclusion from search).
+    - Provides settings for customizing the plugin's behaviour (e.g., date format, exclusion from search).
 
 ---
 
@@ -146,5 +146,3 @@ This WordPress plugin, **"This Day In History"**, allows users to create, manage
 - Uses pagination for admin tables to handle large datasets efficiently.
 
 ---
-
-This plugin is a comprehensive solution for managing and displaying historical events in WordPress, with a focus on flexibility, security, and performance. Let me know if you need further clarification!
