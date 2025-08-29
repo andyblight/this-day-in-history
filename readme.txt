@@ -96,6 +96,9 @@ Example use:
 
 == Changelog ==
 
+= 3.11.0 =
+* Leading zeros are not shown on displayed year values.
+
 = 3.10.2 =
 * Added Andy Blight as contributor.
 * Fixed many security issues.
