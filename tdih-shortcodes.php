@@ -166,6 +166,7 @@ function tdih_shortcode($atts)
 		return $no_events ? '<p>' . esc_html($no_events) . '</p>' : '';
 	}
 
+	// Build output list.
 	$text = '<dl class="tdih_list' . $class . '">';
 
 	$last_type = '';
@@ -177,11 +178,14 @@ function tdih_shortcode($atts)
 			$text .= '<dt class="tdih_event_type">' . esc_html($current_type) . '</dt>';
 		}
 
+		// Build row.
 		$text .= '<dd>';
 
 		if ($show_year) {
 			$event_year = isset($e->event_year) ? $e->event_year : '';
 			$text .= '<span class="tdih_event_year">' . tdih_format_year( $event_year ) . '</span>';
+			// Add a separator between the year and the event.
+			$text .= ' - ';
 		}
 
 		$extended = get_extended(isset($e->event_name) ? $e->event_name : '');
