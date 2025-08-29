@@ -64,7 +64,7 @@ jobs:
           # Create a clean temporary directory with plugin contents at top-level folder
           TMPDIR="$(mktemp -d)"
           mkdir -p "${TMPDIR}/${PLUGIN_DIR}"
-          rsync -a --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='*.zip' ./ "${TMPDIR}/${PLUGIN_DIR}/"
+          rsync -a --exclude='.git' --exclude='.github' --exclude='node_modules' --exclude='release' --exclude='*.zip' ./ "${TMPDIR}/${PLUGIN_DIR}/"
           (cd "${TMPDIR}" && zip -r "${GITHUB_WORKSPACE}/${OUT}" "${PLUGIN_DIR}")
           echo "Created: ${OUT}"
 
