@@ -144,7 +144,6 @@ function tdih_shortcode($atts)
 add_shortcode('tdih', 'tdih_shortcode');
 
 
-
 /* Add tdih_tab shortcode */
 
 function tdih_tab_shortcode($atts)
