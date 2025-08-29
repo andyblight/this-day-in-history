@@ -1,5 +1,31 @@
 <?php
 
+
+/**
+ * Normalize year display: remove leading zeros and preserve era marker.
+ *
+ * @param mixed $raw_year Year part as stored (e.g. "0946" or "-0946" or "946")
+ * @return string Escaped display string (e.g. "946" or "946 BCE")
+ */
+function tdih_format_year( $raw_year ) {
+    if ( $raw_year === '' || $raw_year == 0 ) {
+        return '';
+    }
+
+    $raw = (string) $raw_year;
+
+    if ( substr( $raw, 0, 1 ) === '-' ) {
+        $abs_year = abs( intval( $raw ) );
+        $options  = get_option( 'tdih_options' );
+        $era      = ( isset( $options['era_mark'] ) && (int) $options['era_mark'] === 1 )
+            ? esc_html__( ' BC', 'this-day-in-history' )
+            : esc_html__( ' BCE', 'this-day-in-history' );
+        return esc_html( $abs_year ) . $era;
+    }
+
+    return esc_html( intval( $raw ) );
+}
+
 /* Add tdih shortcode */
 
 function tdih_shortcode($atts)
@@ -92,19 +118,8 @@ function tdih_shortcode($atts)
 		$text .= '<dd>';
 
 		if ($show_year) {
-			$raw_year = isset($e->event_year) ? $e->event_year : '';
-			if ($raw_year == 0) {
-				$year = '';
-			} else {
-				if (substr((string) $raw_year, 0, 1) === '-') {
-					$year_num = ltrim((string) $raw_year, '-');
-					$era = (isset($options['era_mark']) && (int) $options['era_mark'] === 1) ? esc_html__(' BC', 'this-day-in-history') : esc_html__(' BCE', 'this-day-in-history');
-					$year = esc_html($year_num) . $era;
-				} else {
-					$year = esc_html($raw_year);
-				}
-			}
-			$text .= '<span class="tdih_event_year">' . $year . '</span>  ';
+			$event_year = isset($e->event_year) ? $e->event_year : '';
+			$text .= '<span class="tdih_event_year">' . tdih_format_year( $event_year ) . '</span>';
 		}
 
 		$extended = get_extended(isset($e->event_name) ? $e->event_name : '');
