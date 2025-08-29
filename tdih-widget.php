@@ -101,7 +101,21 @@ class this_day_in_history_widget extends WP_Widget
 
 				if ($show_year) {
 					$raw_year = isset($values->event_year) ? $values->event_year : '';
-					$year = $raw_year == 0 ? '' : (substr((string) $raw_year, 0, 1) == '-' ? ltrim((string) $raw_year, '-') . ((isset($options['era_mark']) && (int) $options['era_mark'] === 1) ? esc_html__(' BC', 'this-day-in-history') : esc_html__(' BCE', 'this-day-in-history')) : esc_html($raw_year));
+
+					// Normalize year display: remove leading zeros while preserving BC/BCE handling
+					if ($raw_year == 0) {
+						$year = '';
+					} else {
+						if (substr((string) $raw_year, 0, 1) == '-') {
+							$abs_year = abs(intval($raw_year));
+							$era = (isset($options['era_mark']) && (int) $options['era_mark'] === 1)
+								? esc_html__(' BC', 'this-day-in-history')
+								: esc_html__(' BCE', 'this-day-in-history');
+							$year = esc_html($abs_year) . $era;
+						} else {
+							$year = esc_html(intval($raw_year));
+						}
+					}
 
 					if (!empty($prefix)) {
 						echo '<span class="tdih_prefix_text">' . esc_html($prefix) . '</span> ';
