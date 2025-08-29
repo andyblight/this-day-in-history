@@ -168,7 +168,7 @@ add_filter('dashboard_glance_items', 'tdih_glance_items', 10, 1);
 function tdih_add_menu() {
 	global $tdih_screen;
 
-	$tdih_screen = add_menu_page(__('This Day In History', 'this-day-in-history'), __('This Day In History', 'this-day-in-history'), 'manage_tdih_events', 'this-day-in-history', 'tdih_display_list', 'dashicons-backup', 21);
+	$tdih_screen = add_menu_page(__('This Day In History', 'this-day-in-history'), __('Historic Events', 'this-day-in-history'), 'manage_tdih_events', 'this-day-in-history', 'tdih_display_list', 'dashicons-backup', 21);
 	add_submenu_page('this-day-in-history', __('This Day In History', 'this-day-in-history'), __('All Events', 'this-day-in-history'), 'manage_tdih_events', 'this-day-in-history');
 	add_submenu_page('this-day-in-history', __('This Day In History', 'this-day-in-history'), __('Add New', 'this-day-in-history'), 'manage_tdih_events', '?page=this-day-in-history&action=new');
 	add_submenu_page('this-day-in-history', __('This Day In History', 'this-day-in-history'), __('Event Types', 'this-day-in-history'), 'manage_tdih_events', 'edit-tags.php?taxonomy=event_type');
