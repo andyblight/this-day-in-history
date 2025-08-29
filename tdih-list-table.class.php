@@ -403,9 +403,36 @@ class TDIH_List_Table extends WP_List_Table {
     /* ------------------ Date helpers ------------------ */
 
     private function date_add_era( $date ) {
-        $d    = substr( $date, 0, 1 ) == '-' ? new DateTime( substr( $date, 1 ) ) : new DateTime( $date );
-        $date = substr( $date, 0, 1 ) == '-' ? $d->format( $this->date_format ) . $this->era_mark : $d->format( $this->date_format );
-        return $date;
+        $is_bce    = substr( $date, 0, 1 ) === '-';
+        $plain_date = $is_bce ? substr( $date, 1 ) : $date;
+        $d         = new DateTime( $plain_date );
+
+        $format = $this->date_format;
+
+        // If the format contains 'Y' build the output by formatting the parts
+        // around the 'Y' token and inserting the integer year (removes leading zeros).
+        if ( strpos( $format, 'Y' ) !== false ) {
+            $year_int = (string) intval( $d->format( 'Y' ) );
+            $parts = explode( 'Y', $format );
+            $formatted = '';
+            $last_index = count( $parts ) - 1;
+            foreach ( $parts as $i => $part ) {
+                // format each part (may contain other DateTime tokens)
+                $formatted .= $d->format( $part );
+                // between parts insert the integer year
+                if ( $i < $last_index ) {
+                    $formatted .= $year_int;
+                }
+            }
+        } else {
+            $formatted = $d->format( $format );
+        }
+
+        if ( $is_bce ) {
+            $formatted .= $this->era_mark;
+        }
+
+        return $formatted;
     }
 
     private function date_check( $date ) {
